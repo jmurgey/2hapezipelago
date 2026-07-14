@@ -6,6 +6,7 @@ namespace _2hapezipelago
     public class APMod : IMod
     {
         public ILogger Logger;
+        public MainThreadDispatcher? Dispatcher;
         public ConnectionHandler? ConHandler;
         public ResearchHandler? ResHandler;
         public SaveDataHandler? SaveHandler;
@@ -14,6 +15,7 @@ namespace _2hapezipelago
         {
             logger.Info?.Log("2hapezipelago initialized, I hope you're not BK anymore...");
             Logger = logger;
+            Dispatcher = new MainThreadDispatcher(this);
             ConHandler = new ConnectionHandler(this);
             ResHandler = new ResearchHandler(this);
             SaveHandler = new SaveDataHandler(this);
@@ -24,9 +26,11 @@ namespace _2hapezipelago
             ConHandler?.Dispose();
             ResHandler?.Dispose();
             SaveHandler?.Dispose();
+            Dispatcher?.Dispose();
             ConHandler = null;
             SaveHandler = null;
             ResHandler = null;
+            Dispatcher = null;
         }
     }
 }

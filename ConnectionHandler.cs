@@ -91,7 +91,6 @@ namespace _2hapezipelago
         public int ReceivedItemsCount = 0;
         public Hook DisconnectOnDisposeHook;
         public SlotDataHandler? SlotDatHand;
-        public long LastReceive = 0;
 
         public ConnectionHandler(APMod mod)
         {
@@ -185,25 +184,33 @@ namespace _2hapezipelago
             }
             Session.Items.ItemReceived += receivedItemsHelper =>
             {
-                try
+                // This callback runs on MultiClient.Net's background socket thread. Only read
+                // the item and advance the local counter here; all game-state mutation is
+                // marshalled onto the main thread (see MainThreadDispatcher) because touching
+                // Unity off the main thread crashes the game.
+                var itemInfo = receivedItemsHelper.DequeueItem();
+                ReceivedItemsCount++;
+                var itemIndex = ReceivedItemsCount;
+                var itemName = itemInfo.ItemName;
+                Mod?.Dispatcher?.Enqueue(() =>
                 {
-                    LastReceive = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-                    var itemInfo = receivedItemsHelper.DequeueItem();
-                    ReceivedItemsCount++;
-                    if (ReceivedItemsCount > Mod?.SaveHandler?.SaveData.ReceivedItemsCount)
+                    try
                     {
-                        Mod?.ResHandler?.ReceiveReward(NameConverter.RemoteUpgrade(itemInfo.ItemName));
-                        if (SaveHandler != null)
+                        var saveHandler = Mod?.SaveHandler;
+                        // On (re)connection the whole backlog is replayed; only apply items
+                        // past the high-water mark persisted in the savegame.
+                        if (saveHandler == null || itemIndex <= saveHandler.SaveData.ReceivedItemsCount)
                         {
-                            SaveHandler.SaveData.ReceivedItemsCount = ReceivedItemsCount;
+                            return;
                         }
+                        Mod?.ResHandler?.ReceiveReward(NameConverter.RemoteUpgrade(itemName));
+                        saveHandler.SaveData.ReceivedItemsCount = itemIndex;
                     }
-                }
-                catch (Exception e)
-                {
-                    Logger.Warning?.Log("Receiving item failed: " + e.Message);
-                    // ctx.Output("Receiving item failed: \n" + e.Message);
-                }
+                    catch (Exception e)
+                    {
+                        Logger.Warning?.Log("Receiving item failed: " + e.Message);
+                    }
+                });
             };
             Session.MessageLog.OnMessageReceived += message =>
             {
