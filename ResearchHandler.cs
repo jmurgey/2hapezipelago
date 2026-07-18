@@ -118,7 +118,7 @@ namespace _2hapezipelago
 
         public void ReceiveReward(string remoteUpgradeId)
         {
-            Mod?.Logger.Info?.Log($"[Debug] Received {remoteUpgradeId} at {Mod?.ConHandler?.LastReceive}");
+            Mod?.Logger.Info?.Log($"[Debug] Received {remoteUpgradeId}");
             var resManager = GameHelper.Core.Research;
             if (remoteUpgradeId.StartsWith("rp"))
             {
